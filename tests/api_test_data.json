@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "register": {
+      "email": "test@example.com",
+      "password": "password123",
+      "role": "SEEKER",
+      "firstName": "Test",
+      "lastName": "User"
+    },
+    "login": {
+      "email": "test@example.com",
+      "password": "password123"
+    }
+  },
+  "opportunity": {
+    "create": {
+      "type": "INTERNSHIP",
+      "title": { "en": "Software Engineering Intern" },
+      "description": { "en": "Work on amazing SaaS projects." },
+      "location": "Remote",
+      "deadline": "2026-12-31T23:59:59Z",
+      "tags": ["Node.js", "React"]
+    }
+  },
+  "application": {
+    "submit": {
+      "resumeUrl": "https://cloudinary.com/test-resume.pdf",
+      "answers": [
+        { "questionId": "q1", "response": "I love coding." }
+      ]
+    }
+  }
+}
