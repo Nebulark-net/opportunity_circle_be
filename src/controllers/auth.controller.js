@@ -104,14 +104,36 @@ const verifyEmail = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, 'Email verified successfully'));
 });
 
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { user: req.user }, 'User profile fetched successfully'));
+});
+
 const oauthSuccess = asyncHandler(async (req, res) => {
-  const { user, accessToken, refreshToken } = req.user;
+  const { user, accessToken, refreshToken, pendingRole } = req.user;
+
+  let redirectUrl = `${process.env.FRONTEND_URL}/oauth-callback?token=${accessToken}&refreshToken=${refreshToken}`;
+  if (pendingRole) {
+    redirectUrl += '&pendingRole=true';
+  }
 
   return res
     .status(200)
     .cookie('accessToken', accessToken, cookieOptions)
     .cookie('refreshToken', refreshToken, cookieOptions)
-    .redirect(`${process.env.FRONTEND_URL}/oauth-callback?token=${accessToken}&refreshToken=${refreshToken}`);
+    .redirect(redirectUrl);
+});
+
+const updateUserRole = asyncHandler(async (req, res) => {
+  const { role } = req.body;
+  const userId = req.user._id;
+
+  const updatedUser = await authService.updateUserRole(userId, role);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, 'User role updated successfully'));
 });
 
 export {
@@ -122,5 +144,7 @@ export {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  getCurrentUser,
   oauthSuccess,
+  updateUserRole,
 };

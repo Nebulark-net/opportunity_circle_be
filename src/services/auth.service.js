@@ -135,37 +135,54 @@ const refreshAccessToken = async (incomingRefreshToken) => {
   }
 };
 
-const processOAuthLogin = async ({ provider, providerUserId, email, fullName, profilePhotoUrl }) => {
+const processOAuthLogin = async ({ provider, providerUserId, email, fullName, profilePhotoUrl, role }) => {
   const normalizedProvider = provider.toUpperCase();
   let oauthAccount = await OAuthAccount.findOne({ provider: normalizedProvider, providerUserId });
   let user;
+  let pendingRole = false;
 
   if (oauthAccount) {
     user = await User.findById(oauthAccount.userId);
-  } else {
+  }
+
+  if (!user) {
     // Check if user with this email already exists
     user = await User.findOne({ email });
 
     if (!user) {
       // Create new user
+      const userRole = role || 'SEEKER'; // Default to SEEKER if no role is passed
+      if (!role) {
+        pendingRole = true;
+      }
+      
       user = await User.create({
         email,
         fullName,
+        role: userRole,
         profilePhotoUrl,
         isOAuthUser: true,
-        isEmailVerified: true,
+        isEmailVerified: true, // Typically social providers verify email
       });
 
-      // Initialize preferences
-      await UserPreference.create({ userId: user._id });
+      // Initialize preferences for seekers
+      if (user.role === 'SEEKER') {
+        await UserPreference.create({ userId: user._id });
+      }
     }
 
-    // Link OAuth account
-    await OAuthAccount.create({
-      userId: user._id,
-      provider: normalizedProvider,
-      providerUserId,
-    });
+    // Link OAuth account if not already linked
+    if (!oauthAccount) {
+      await OAuthAccount.create({
+        userId: user._id,
+        provider: normalizedProvider,
+        providerUserId,
+      });
+    } else {
+      // If oauthAccount existed but user was null, update the userId link
+      oauthAccount.userId = user._id;
+      await oauthAccount.save();
+    }
   }
 
   if (!user) {
@@ -180,7 +197,7 @@ const processOAuthLogin = async ({ provider, providerUserId, email, fullName, pr
 
   const loggedInUser = await User.findById(user._id).select('-password -refreshToken');
 
-  return { user: loggedInUser, accessToken, refreshToken };
+  return { user: loggedInUser, accessToken, refreshToken, pendingRole };
 };
 
 const forgotPassword = async (email) => {
@@ -257,6 +274,35 @@ const verifyEmail = async (token) => {
   return true;
 };
 
+const updateUserRole = async (userId, role) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  // Optional: Add validation to ensure only OAuth users without a finalized role can change it
+  // For now, we'll allow it as long as they are authenticated.
+
+  const allowedRoles = ['SEEKER', 'PUBLISHER'];
+  if (!allowedRoles.includes(role)) {
+    throw new ApiError(400, 'Invalid role specified');
+  }
+
+  user.role = role;
+  await user.save({ validateBeforeSave: false });
+
+  // If the new role is 'SEEKER' and they don't have preferences, create them.
+  if (role === 'SEEKER') {
+    const preferences = await UserPreference.findOne({ userId });
+    if (!preferences) {
+      await UserPreference.create({ userId });
+    }
+  }
+
+  return user;
+};
+
 export {
   registerUser,
   loginUser,
@@ -266,4 +312,5 @@ export {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  updateUserRole,
 };

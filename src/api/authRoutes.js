@@ -8,7 +8,9 @@ import {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  getCurrentUser,
   oauthSuccess,
+  updateUserRole,
 } from '../controllers/auth.controller.js';
 import { verifyJWT } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
@@ -129,14 +131,51 @@ router.route('/reset-password').post(validate(resetPasswordSchema), resetPasswor
 router.route('/verify-email').get(validate(verifyEmailSchema), verifyEmail);
 
 // OAuth Routes
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-router.get('/google/callback', passport.authenticate('google', { session: false }), oauthSuccess);
+router.get('/google', (req, res, next) => {
+  const { role } = req.query;
+  const state = role ? Buffer.from(JSON.stringify({ role })).toString('base64') : undefined;
+  
+  passport.authenticate('google', { 
+    scope: 'profile email', 
+    state,
+    prompt: 'select_account'
+  })(req, res, next);
+});
 
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
-router.get('/github/callback', passport.authenticate('github', { session: false }), oauthSuccess);
+router.get('/github', (req, res, next) => {
+  const { role } = req.query;
+  const state = role ? Buffer.from(JSON.stringify({ role })).toString('base64') : undefined;
+  
+  passport.authenticate('github', { 
+    scope: 'user:email', 
+    state 
+  })(req, res, next);
+});
+
+router.get('/:provider/callback', (req, res, next) => {
+  const { provider } = req.params;
+  passport.authenticate(provider, { session: false }, (err, user, info) => {
+    if (err || !user) {
+      // Handle authentication failure
+      const message = info?.message || 'Authentication failed';
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(message)}`);
+    }
+    req.user = user;
+    next();
+  })(req, res, next);
+}, oauthSuccess);
+
+// Catch-all for legacy/broken callback URLs with 'undefined'
+router.get('/:provider/undefined/oauth-callback', (req, res) => {
+  const { provider } = req.params;
+  const queryString = req.url.split('?')[1] ? `?${req.url.split('?')[1]}` : '';
+  res.redirect(`/api/v1/auth/${provider}/callback${queryString}`);
+});
 
 // secured routes
 router.route('/logout').post(verifyJWT, logoutUser);
 router.route('/refresh-token').post(refreshAccessToken);
+router.route('/me').get(verifyJWT, getCurrentUser);
+router.route('/me/role').patch(verifyJWT, updateUserRole);
 
 export default router;

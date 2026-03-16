@@ -1,4 +1,4 @@
-import winston from 'winston';
+import logger from '../utils/logger.js';
 import { ApiError } from '../utils/apiError.js';
 
 const errorHandler = (err, req, res, next) => {
@@ -16,7 +16,7 @@ const errorHandler = (err, req, res, next) => {
     correlationId: req.correlationId,
   };
 
-  winston.error(`${statusCode} - ${message} - ID: ${req.correlationId}`);
+  logger.error(`${statusCode} - ${message} - ID: ${req.correlationId}`);
 
   res.status(statusCode).send(response);
 };
