@@ -1,18 +1,13 @@
-FROM node:20-alpine
-
-# Create app directory
+# Stage 1: Build the application
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Install app dependencies
 COPY package*.json ./
-RUN npm install --production
-
-# Bundle app source
+RUN npm install
 COPY . .
 
-# Environment variables
-ENV PORT=5000
+# Stage 2: Production environment
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app .
 EXPOSE 5000
-
-# Start command
 CMD [ "npm", "start" ]

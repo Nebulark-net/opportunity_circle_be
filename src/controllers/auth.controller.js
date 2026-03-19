@@ -111,18 +111,23 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const oauthSuccess = asyncHandler(async (req, res) => {
-  const { user, accessToken, refreshToken, pendingRole } = req.user;
+  try {
+    const { user, accessToken, refreshToken, pendingRole } = req.user;
 
-  let redirectUrl = `${process.env.FRONTEND_URL}/oauth-callback?token=${accessToken}&refreshToken=${refreshToken}`;
-  if (pendingRole) {
-    redirectUrl += '&pendingRole=true';
+    let redirectUrl = `${process.env.FRONTEND_URL}/oauth-callback?token=${accessToken}&refreshToken=${refreshToken}`;
+    if (pendingRole) {
+      redirectUrl += '&pendingRole=true';
+    }
+
+    return res
+      .status(200)
+      .cookie('accessToken', accessToken, cookieOptions)
+      .cookie('refreshToken', refreshToken, cookieOptions)
+      .redirect(redirectUrl);
+  } catch (error) {
+    logger.error('oauthSuccess controller failed:', error);
+    return res.redirect(`${process.env.FRONTEND_URL}/login?error=${AuthErrors.INTERNAL_STABILITY}`);
   }
-
-  return res
-    .status(200)
-    .cookie('accessToken', accessToken, cookieOptions)
-    .cookie('refreshToken', refreshToken, cookieOptions)
-    .redirect(redirectUrl);
 });
 
 const updateUserRole = asyncHandler(async (req, res) => {

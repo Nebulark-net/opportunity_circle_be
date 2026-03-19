@@ -4,6 +4,9 @@ import * as analyticsService from '../services/analytics.service.js';
 import * as publisherService from '../services/publisher.service.js';
 import * as applicationService from '../services/application.service.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { uploadToCloudinary } from '../config/cloudinary.js';
+import { Opportunity } from '../models/Opportunity.js';
+import fs from 'fs';
 
 const getDashboardStats = asyncHandler(async (req, res) => {
   const stats = await analyticsService.getPublisherStats(req.user._id);
@@ -14,18 +17,47 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 });
 
 const getMyOpportunities = asyncHandler(async (req, res) => {
-  const result = await opportunityService.getAllOpportunities(
-    { publisherId: req.user._id, isDeleted: false },
-    { page: req.query.page, limit: req.query.limit }
-  );
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  const query = {
+    publisherId: req.user._id,
+    isDeleted: false,
+    // No status filter — publishers see ALL their listings (PENDING, ACTIVE, DRAFT, EXPIRED, etc.)
+  };
+
+  const [opportunities, total] = await Promise.all([
+    Opportunity.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Opportunity.countDocuments(query),
+  ]);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, result, 'Publisher opportunities fetched successfully'));
+    .json(new ApiResponse(200, {
+      opportunities,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    }, 'Publisher opportunities fetched successfully'));
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-  const profile = await publisherService.updateProfile(req.user._id, req.body);
+  let profileData = { ...req.body };
+
+  if (req.file) {
+    const result = await uploadToCloudinary(req.file.path, 'publisher-profiles');
+    profileData.organizationLogo = result.secure_url;
+    // For publishers, we also update the user's profilePhotoUrl for consistency in headers
+    profileData.profilePhotoUrl = result.secure_url; 
+    
+    // Remove local temp file
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+  }
+
+  const profile = await publisherService.updateProfile(req.user._id, profileData);
 
   return res
     .status(200)
@@ -67,6 +99,14 @@ const updateApplicationStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, `Application status updated to ${status}`));
 });
 
+const getAllApplicants = asyncHandler(async (req, res) => {
+  const result = await applicationService.getAllPublisherApplications(req.user._id);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, 'All applicants fetched successfully'));
+});
+
 export {
   getDashboardStats,
   getMyOpportunities,
@@ -75,4 +115,5 @@ export {
   completeOnboarding,
   getOpportunityApplications,
   updateApplicationStatus,
+  getAllApplicants,
 };

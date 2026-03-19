@@ -10,6 +10,23 @@ dotenv.config({
   path: './.env',
 });
 
+// Check for required environment variables
+const requiredEnvVars = [
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GITHUB_CLIENT_ID',
+  'GITHUB_CLIENT_SECRET',
+  'BACKEND_URL',
+  'FRONTEND_URL'
+];
+
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 5000;
 
 const server = http.createServer(app);

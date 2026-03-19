@@ -1,33 +1,61 @@
 import mongoose, { Schema } from 'mongoose';
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Notification:
+ *       type: object
+ *       required:
+ *         - userId
+ *         - title
+ *         - message
+ *       properties:
+ *         id:
+ *           type: string
+ *         userId:
+ *           type: string
+ *         title:
+ *           type: string
+ *         message:
+ *           type: string
+ *         type:
+ *           type: string
+ *           enum: [info, success, warning, error]
+ *           default: info
+ *         isRead:
+ *           type: boolean
+ *           default: false
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ */
 const notificationSchema = new Schema(
   {
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: [true, 'User ID is required'],
       index: true,
     },
     title: {
       type: String,
-      required: true,
+      required: [true, 'Title is required'],
+      trim: true,
     },
-    content: {
+    message: {
       type: String,
-      required: true,
+      required: [true, 'Message is required'],
+      trim: true,
+    },
+    type: {
+      type: String,
+      enum: ['info', 'success', 'warning', 'error'],
+      default: 'info',
     },
     isRead: {
       type: Boolean,
       default: false,
-      index: true,
-    },
-    sourceType: {
-      type: String,
-      enum: ['APPLICATION_UPDATE', 'NEW_OPPORTUNITY', 'DEADLINE_REMINDER', 'SYSTEM', 'RESOURCE'],
-      required: true,
-    },
-    sourceId: {
-      type: Schema.Types.ObjectId,
     },
   },
   {

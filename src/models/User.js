@@ -146,6 +146,10 @@ const userSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    showLocation: {
+      type: Boolean,
+      default: true,
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,

@@ -12,7 +12,7 @@ const userPreferenceSchema = new Schema(
     interestedTypes: [
       {
         type: String,
-        enum: ['INTERNSHIP', 'SCHOLARSHIP', 'FELLOWSHIP', 'EVENT', 'WORKSHOP'],
+        enum: ['INTERNSHIP', 'SCHOLARSHIP', 'FELLOWSHIP', 'EVENT', 'WORKSHOP', 'GRANT', 'MENTORSHIP'],
       },
     ],
     targetLocations: [

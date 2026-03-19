@@ -26,10 +26,18 @@ Industrial-grade backend for a two-sided marketplace connecting organizations wi
 4. Configure `.env` (use `.env.example` as template)
 5. `npm run dev`
 
-### Docker
-```bash
-docker-compose up --build
-```
+## Docker Deployment (Production)
+
+This project is designed to be deployed as a full stack using Docker Compose from the root of the repository.
+
+1.  **Configure Root `.env`**: Create a `.env` file in the project root. Use the `.env.example` as a template.
+2.  **Run Docker Compose**:
+    ```bash
+    # From the repository root
+    docker-compose up --build -d
+    ```
+3.  **Verify**: Access the application at `http://localhost:${APP_PORT}` (as defined in your `.env` file).
+
 
 ## API Features
 - **Multi-role Auth**: Seeker, Publisher, Admin.

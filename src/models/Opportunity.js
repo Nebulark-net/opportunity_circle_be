@@ -73,7 +73,7 @@ const opportunitySchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['DRAFT', 'PENDING', 'ACTIVE', 'EXPIRED', 'ARCHIVED'],
+      enum: ['DRAFT', 'PENDING', 'ACTIVE', 'EXPIRED', 'ARCHIVED', 'REJECTED'],
       default: 'DRAFT',
       index: true,
     },

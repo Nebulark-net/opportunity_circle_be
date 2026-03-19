@@ -103,10 +103,21 @@ const withdrawApplication = async (applicationId, userId) => {
   return application;
 };
 
+const getAllPublisherApplications = async (publisherId) => {
+  const opportunities = await Opportunity.find({ publisherId }).select('_id');
+  const opportunityIds = opportunities.map(opp => opp._id);
+
+  return await Application.find({ opportunityId: { $in: opportunityIds } })
+    .populate('opportunityId', 'title type status')
+    .populate('userId', 'fullName email profilePhotoUrl country')
+    .sort({ appliedAt: -1 });
+};
+
 export {
   submitApplication,
   getSeekerApplications,
   getOpportunityApplications,
+  getAllPublisherApplications,
   updateApplicationStatus,
   withdrawApplication,
 };

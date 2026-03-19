@@ -8,6 +8,8 @@ import { EmailVerificationToken } from '../models/EmailVerificationToken.js';
 import { ApiError } from '../utils/apiError.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/token.js';
 import { sendEmail } from '../config/email.js';
+import { withTransaction } from '../utils/dbUtils.js';
+import logger from '../utils/logger.js';
 import crypto from 'crypto';
 
 const registerUser = async ({ email, password, role, fullName }) => {
@@ -27,6 +29,14 @@ const registerUser = async ({ email, password, role, fullName }) => {
   // Initialize preferences for seekers
   if (role === 'SEEKER') {
     await UserPreference.create({ userId: user._id });
+  }
+
+  // Initialize publisher profile for publishers
+  if (role === 'PUBLISHER') {
+    await PublisherProfile.create({
+      userId: user._id,
+      organizationName: fullName || 'My Organization',
+    });
   }
 
   // Generate Email Verification Token
@@ -137,67 +147,105 @@ const refreshAccessToken = async (incomingRefreshToken) => {
 
 const processOAuthLogin = async ({ provider, providerUserId, email, fullName, profilePhotoUrl, role }) => {
   const normalizedProvider = provider.toUpperCase();
-  let oauthAccount = await OAuthAccount.findOne({ provider: normalizedProvider, providerUserId });
-  let user;
-  let pendingRole = false;
 
-  if (oauthAccount) {
-    user = await User.findById(oauthAccount.userId);
-  }
+  // Retry logic for concurrent race conditions
+  const maxRetries = 3;
+  let attempt = 0;
 
-  if (!user) {
-    // Check if user with this email already exists
-    user = await User.findOne({ email });
+  while (attempt < maxRetries) {
+    try {
+      return await withTransaction(async (session) => {
+        const queryOptions = session ? { session } : {};
+        
+        let oauthAccount = await OAuthAccount.findOne({ provider: normalizedProvider, providerUserId }).setOptions(queryOptions);
+        let user;
+        let pendingRole = false;
 
-    if (!user) {
-      // Create new user
-      const userRole = role || 'SEEKER'; // Default to SEEKER if no role is passed
-      if (!role) {
-        pendingRole = true;
-      }
-      
-      user = await User.create({
-        email,
-        fullName,
-        role: userRole,
-        profilePhotoUrl,
-        isOAuthUser: true,
-        isEmailVerified: true, // Typically social providers verify email
+        if (oauthAccount) {
+          user = await User.findById(oauthAccount.userId).setOptions(queryOptions);
+          
+          // Update profile if changed
+          if (user && (user.fullName !== fullName || user.profilePhotoUrl !== profilePhotoUrl)) {
+            user.fullName = fullName || user.fullName;
+            user.profilePhotoUrl = profilePhotoUrl || user.profilePhotoUrl;
+            await user.save(queryOptions);
+            logger.info(`Updated profile for user: ${email}`);
+          }
+        }
+
+        if (!user) {
+          // Check if user with this email already exists
+          user = await User.findOne({ email }).setOptions(queryOptions);
+
+          if (!user) {
+            // Create new user
+            const userRole = role || 'SEEKER';
+            if (!role) {
+              pendingRole = true;
+            }
+
+            const newUserArray = await User.create([{
+              email,
+              fullName,
+              role: userRole,
+              profilePhotoUrl,
+              isOAuthUser: true,
+              isEmailVerified: true,
+            }], queryOptions);
+            user = newUserArray[0];
+
+            // Initialize preferences for seekers
+            if (user.role === 'SEEKER') {
+              await UserPreference.create([{ userId: user._id }], queryOptions);
+            }
+            // Initialize publisher profile for publishers
+            if (user.role === 'PUBLISHER') {
+              await PublisherProfile.create([{
+                userId: user._id,
+                organizationName: fullName || 'My Organization',
+              }], queryOptions);
+            }
+            logger.info(`Created new user via OAuth (${normalizedProvider}): ${email}`);
+          }
+
+          // Link OAuth account if not already linked
+          if (!oauthAccount) {
+            await OAuthAccount.create([{
+              userId: user._id,
+              provider: normalizedProvider,
+              providerUserId,
+            }], queryOptions);
+            logger.info(`Linked OAuth account (${normalizedProvider}) to user: ${email}`);
+          } else if (!oauthAccount.userId.equals(user._id)) {
+            // Update link if it exists but points to null user (shouldn't happen with transactions but for safety)
+            oauthAccount.userId = user._id;
+            await oauthAccount.save(queryOptions);
+          }
+        }
+
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
+        user.refreshToken = refreshToken;
+        await user.save({ validateBeforeSave: false, ...queryOptions });
+
+        const loggedInUser = await User.findById(user._id).select('-password -refreshToken').setOptions(queryOptions);
+
+        return { user: loggedInUser, accessToken, refreshToken, pendingRole };
       });
-
-      // Initialize preferences for seekers
-      if (user.role === 'SEEKER') {
-        await UserPreference.create({ userId: user._id });
+    } catch (error) {
+      attempt++;
+      // Check if it's a duplicate key error (code 11000)
+      if (error.code === 11000 && attempt < maxRetries) {
+        logger.warn(`Concurrency race condition detected for ${email} on attempt ${attempt}. Retrying...`);
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+        continue;
       }
-    }
-
-    // Link OAuth account if not already linked
-    if (!oauthAccount) {
-      await OAuthAccount.create({
-        userId: user._id,
-        provider: normalizedProvider,
-        providerUserId,
-      });
-    } else {
-      // If oauthAccount existed but user was null, update the userId link
-      oauthAccount.userId = user._id;
-      await oauthAccount.save();
+      logger.error(`OAuth login failed for ${email} after ${attempt} attempts:`, error);
+      throw error;
     }
   }
-
-  if (!user) {
-    throw new ApiError(500, 'User creation or retrieval failed during OAuth');
-  }
-
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-
-  user.refreshToken = refreshToken;
-  await user.save({ validateBeforeSave: false });
-
-  const loggedInUser = await User.findById(user._id).select('-password -refreshToken');
-
-  return { user: loggedInUser, accessToken, refreshToken, pendingRole };
 };
 
 const forgotPassword = async (email) => {
@@ -292,11 +340,20 @@ const updateUserRole = async (userId, role) => {
   user.role = role;
   await user.save({ validateBeforeSave: false });
 
-  // If the new role is 'SEEKER' and they don't have preferences, create them.
+  // Initialize profiles based on role
   if (role === 'SEEKER') {
     const preferences = await UserPreference.findOne({ userId });
     if (!preferences) {
       await UserPreference.create({ userId });
+    }
+  } else if (role === 'PUBLISHER') {
+    const profile = await PublisherProfile.findOne({ userId });
+    if (!profile) {
+      // Use full name as organization name placeholder for initial setup
+      await PublisherProfile.create({ 
+        userId, 
+        organizationName: user.fullName || 'My Organization' 
+      });
     }
   }
 

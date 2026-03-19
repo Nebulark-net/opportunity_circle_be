@@ -5,10 +5,15 @@ import { trackOpportunityView } from './analytics.service.js';
 import { getWorkshopMentors } from './mentor.service.js';
 
 const createOpportunity = async (publisherId, opportunityData) => {
-  const profile = await PublisherProfile.findOne({ userId: publisherId });
+  // Upsert the publisher profile — creates it if it doesn't exist (safety net for legacy accounts)
+  let profile = await PublisherProfile.findOneAndUpdate(
+    { userId: publisherId },
+    { $setOnInsert: { userId: publisherId, organizationName: 'My Organization' } },
+    { upsert: true, new: true }
+  );
 
   if (!profile) {
-    throw new ApiError(404, 'Publisher profile not found');
+    profile = await PublisherProfile.findOne({ userId: publisherId });
   }
 
   // Generate search tokens from title and organizationName

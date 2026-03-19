@@ -49,21 +49,22 @@ const updateOpportunitySchema = z.object({
     applyUrl: z.string().url().optional(),
     imageUrl: z.string().url().optional(),
     tags: z.array(z.string()).optional(),
-    status: z.enum(['DRAFT', 'PENDING', 'ACTIVE', 'EXPIRED', 'ARCHIVED']).optional(),
+    status: z.enum(['DRAFT', 'PENDING', 'ACTIVE', 'EXPIRED', 'ARCHIVED', 'REJECTED']).optional(),
   }),
 });
 
 const statusUpdateSchema = z.object({
   body: z.object({
-    status: z.enum(['DRAFT', 'PENDING', 'ACTIVE', 'EXPIRED', 'ARCHIVED']),
+    status: z.enum(['DRAFT', 'PENDING', 'ACTIVE', 'EXPIRED', 'ARCHIVED', 'REJECTED']),
   }),
 });
 
-router.route('/').get(optionalJWT, getAllOpportunities);
+router.route('/')
+  .get(optionalJWT, getAllOpportunities)
+  .post(verifyJWT, authorizeRoles('PUBLISHER', 'ADMIN'), validate(opportunitySchema), createOpportunity);
+
 router.route('/:id').get(optionalJWT, getOpportunityById);
 
-// secured routes
-router.route('/').post(verifyJWT, authorizeRoles('PUBLISHER', 'ADMIN'), validate(opportunitySchema), createOpportunity);
 router.route('/:id').patch(verifyJWT, authorizeRoles('PUBLISHER', 'ADMIN'), validate(updateOpportunitySchema), updateOpportunity);
 router.route('/:id').delete(verifyJWT, authorizeRoles('PUBLISHER', 'ADMIN'), deleteOpportunity);
 

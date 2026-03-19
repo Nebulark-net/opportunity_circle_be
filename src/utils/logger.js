@@ -47,7 +47,7 @@ const transports = [
     ),
   }),
   new winston.transports.File({
-    filename: path.join(logDir, 'combined.log'),
+    filename: path.join(logDir, 'auth-audit.log'),
     format: winston.format.combine(
       winston.format.uncolorize(),
       winston.format.json()

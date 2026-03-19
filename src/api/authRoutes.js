@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import passport from 'passport';
+import { AuthErrors } from '../utils/authErrors.js';
 import {
   registerUser,
   loginUser,
@@ -50,6 +51,12 @@ const resetPasswordSchema = z.object({
 const verifyEmailSchema = z.object({
   query: z.object({
     token: z.string(),
+  }),
+});
+
+const updateUserRoleSchema = z.object({
+  body: z.object({
+    role: z.enum(['SEEKER', 'PUBLISHER']),
   }),
 });
 
@@ -155,10 +162,14 @@ router.get('/github', (req, res, next) => {
 router.get('/:provider/callback', (req, res, next) => {
   const { provider } = req.params;
   passport.authenticate(provider, { session: false }, (err, user, info) => {
-    if (err || !user) {
-      // Handle authentication failure
-      const message = info?.message || 'Authentication failed';
-      return res.redirect(`${process.env.FRONTEND_URL}/login?error=${encodeURIComponent(message)}`);
+    if (err) {
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=${AuthErrors.PROVIDER_FAILURE}`);
+    }
+    if (!user) {
+      // Map Passport info message to our AuthErrors
+      const errorKey = info?.message || 'AUTH_CANCELED';
+      const errorCode = AuthErrors[errorKey] || AuthErrors.AUTH_CANCELED;
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=${errorCode}`);
     }
     req.user = user;
     next();
@@ -169,13 +180,41 @@ router.get('/:provider/callback', (req, res, next) => {
 router.get('/:provider/undefined/oauth-callback', (req, res) => {
   const { provider } = req.params;
   const queryString = req.url.split('?')[1] ? `?${req.url.split('?')[1]}` : '';
-  res.redirect(`/api/v1/auth/${provider}/callback${queryString}`);
+  res.redirect(`/api/auth/${provider}/callback${queryString}`);
 });
 
 // secured routes
 router.route('/logout').post(verifyJWT, logoutUser);
 router.route('/refresh-token').post(refreshAccessToken);
 router.route('/me').get(verifyJWT, getCurrentUser);
-router.route('/me/role').patch(verifyJWT, updateUserRole);
+/**
+ * @swagger
+ * /api/v1/auth/me/role:
+ *   patch:
+ *     summary: Update user role
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [SEEKER, PUBLISHER]
+ *     responses:
+ *       200:
+ *         description: Role updated successfully
+ *       400:
+ *         description: Invalid role
+ *       401:
+ *         description: Unauthorized
+ */
+router.route('/me/role').patch(verifyJWT, validate(updateUserRoleSchema), updateUserRole);
 
 export default router;

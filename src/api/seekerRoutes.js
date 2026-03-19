@@ -42,7 +42,14 @@ const profileUpdateSchema = z.object({
     education: z.string().optional(),
     fieldOfStudy: z.string().optional(),
     degreeLevel: z.enum(['UNDERGRADUATE', 'GRADUATE', 'PHD', 'OTHER']).nullable().optional(),
-    isProfileVisible: z.boolean().optional(),
+    isProfileVisible: z.preprocess((val) => {
+      if (typeof val === 'string') return val === 'true';
+      return val;
+    }, z.boolean()).optional(),
+    showLocation: z.preprocess((val) => {
+      if (typeof val === 'string') return val === 'true';
+      return val;
+    }, z.boolean()).optional(),
   }),
 });
 

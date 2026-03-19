@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as GitHubStrategy } from 'passport-github2';
+import axios from 'axios';
 import { processOAuthLogin } from '../services/auth.service.js';
 import logger from '../utils/logger.js';
 
@@ -23,12 +24,19 @@ passport.use(
             logger.warn('Failed to parse OAuth state:', e);
           }
         }
+
+        const email = profile.emails?.[0]?.value;
+        if (!email) {
+          logger.error('Google OAuth profile is missing email:', profile.id);
+          return done(null, false, { message: 'EMAIL_REQUIRED' });
+        }
+
         const result = await processOAuthLogin({
           provider: 'GOOGLE',
           providerUserId: profile.id,
-          email: profile.emails[0].value,
+          email,
           fullName: profile.displayName,
-          profilePhotoUrl: profile.photos[0]?.value,
+          profilePhotoUrl: profile.photos?.[0]?.value,
           role: state.role,
         });
         return done(null, result);
@@ -59,12 +67,34 @@ passport.use(
             logger.warn('Failed to parse OAuth state:', e);
           }
         }
+
+        let email = profile.emails?.[0]?.value;
+
+        // Fallback: Fetch emails from GitHub API if profile doesn't have it
+        if (!email && accessToken) {
+          try {
+            const response = await axios.get('https://api.github.com/user/emails', {
+              headers: { Authorization: `token ${accessToken}` },
+            });
+            const primaryEmail = response.data.find((e) => e.primary && e.verified) || response.data[0];
+            email = primaryEmail?.email;
+            logger.info(`Fetched email from GitHub API for user ${profile.id}: ${email}`);
+          } catch (apiError) {
+            logger.error('Failed to fetch emails from GitHub API:', apiError.message);
+          }
+        }
+
+        if (!email) {
+          logger.error('GitHub OAuth profile is missing email:', profile.id);
+          return done(null, false, { message: 'EMAIL_REQUIRED' });
+        }
+
         const result = await processOAuthLogin({
           provider: 'GITHUB',
           providerUserId: profile.id,
-          email: profile.emails[0].value,
+          email,
           fullName: profile.displayName || profile.username,
-          profilePhotoUrl: profile.photos[0]?.value,
+          profilePhotoUrl: profile.photos?.[0]?.value,
           role: state.role,
         });
         return done(null, result);

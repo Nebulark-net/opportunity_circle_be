@@ -50,7 +50,7 @@ const authLimiter = rateLimit({
 
 // Apply limiters
 app.use('/api', generalLimiter);
-app.use('/api/v1/auth', authLimiter);
+app.use('/api/auth', authLimiter);
 
 app.use(passport.initialize());
 
@@ -58,23 +58,37 @@ app.use(passport.initialize());
 import authRouter from './api/authRoutes.js';
 import opportunityRouter from './api/opportunityRoutes.js';
 import seekerRouter from './api/seekerRoutes.js';
+import onboardingRouter from './api/onboarding.routes.js';
 import publisherRouter from './api/publisherRoutes.js';
 import mentorRouter from './api/mentorRoutes.js';
 import cmsRouter from './api/cmsRoutes.js';
 import resourceRouter from './api/resourceRoutes.js';
+import notificationRouter from './api/notificationRoutes.js';
+import applicationRouter from './api/applicationRoutes.js';
+import adminRouter from './api/adminRoutes.js';
 import { specs, swaggerUi } from './config/swagger.js';
 
 // routes declaration
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/opportunities', opportunityRouter);
-app.use('/api/v1/seekers', seekerRouter);
-app.use('/api/v1/publishers', publisherRouter);
-app.use('/api/v1/mentors', mentorRouter);
-app.use('/api/v1/cms', cmsRouter);
-app.use('/api/v1/resources', resourceRouter);
 
-// http://localhost:5000/api/v1/auth/register
+// Health check route
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'UP' });
+});
+
+app.use('/api/auth', authRouter);
+app.use('/api/opportunities', opportunityRouter);
+app.use('/api/seekers', seekerRouter);
+app.use('/api/onboarding', onboardingRouter);
+app.use('/api/publishers', publisherRouter);
+app.use('/api/mentors', mentorRouter);
+app.use('/api/cms', cmsRouter);
+app.use('/api/resources', resourceRouter);
+app.use('/api/notifications', notificationRouter);
+app.use('/api/applications', applicationRouter);
+app.use('/api/admin', adminRouter);
+
+// http://localhost:5000/api/auth/register
 
 app.use(errorHandler);
 

@@ -1,63 +1,67 @@
 import mongoose, { Schema } from 'mongoose';
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Application:
+ *       type: object
+ *       required:
+ *         - userId
+ *         - opportunityId
+ *         - status
+ *       properties:
+ *         id:
+ *           type: string
+ *         userId:
+ *           type: string
+ *         opportunityId:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [pending, under_review, accepted, rejected]
+ *           default: pending
+ *         notes:
+ *           type: string
+ *         appliedAt:
+ *           type: string
+ *           format: date-time
+ */
 const applicationSchema = new Schema(
   {
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: [true, 'User ID is required'],
       index: true,
     },
     opportunityId: {
       type: Schema.Types.ObjectId,
       ref: 'Opportunity',
-      required: true,
+      required: [true, 'Opportunity ID is required'],
       index: true,
     },
     status: {
       type: String,
-      enum: ['SUBMITTED', 'UNDER_REVIEW', 'OFFERED', 'REJECTED', 'WITHDRAWN'],
+      enum: ['SUBMITTED', 'UNDER_REVIEW', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'],
       default: 'SUBMITTED',
-      index: true,
-    },
-    appliedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    withdrawnAt: {
-      type: Date,
-    },
-    lastUpdated: {
-      type: Date,
-      default: Date.now,
+      required: true,
     },
     notes: {
       type: String,
       trim: true,
     },
-    resumeUrl: {
-      type: String,
+    appliedAt: {
+      type: Date,
+      default: Date.now,
     },
-    answers: [
-      {
-        questionId: {
-          type: String,
-          required: true,
-        },
-        response: {
-          type: String,
-          required: true,
-        },
-      },
-    ],
   },
   {
     timestamps: true,
   }
 );
 
-// Prevent duplicate applications
-applicationSchema.index({ opportunityId: 1, userId: 1 }, { unique: true });
-applicationSchema.index({ userId: 1, status: 1 });
+// Ensure a user can only apply to an opportunity once
+applicationSchema.index({ userId: 1, opportunityId: 1 }, { unique: true });
 
 export const Application = mongoose.model('Application', applicationSchema);
