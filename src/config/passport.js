@@ -10,7 +10,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID || 'missing-id',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'missing-secret',
-      callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/v1/auth/google/callback`,
+      callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
       passReqToCallback: true,
       scope: ['profile', 'email'],
     },
@@ -53,7 +53,7 @@ passport.use(
     {
       clientID: process.env.GITHUB_CLIENT_ID || 'missing-id',
       clientSecret: process.env.GITHUB_CLIENT_SECRET || 'missing-secret',
-      callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/v1/auth/github/callback`,
+      callbackURL: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/github/callback`,
       passReqToCallback: true,
       scope: ['user:email'],
     },

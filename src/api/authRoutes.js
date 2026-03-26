@@ -69,7 +69,7 @@ const updateUserRoleSchema = z.object({
 
 /**
  * @swagger
- * /api/v1/auth/register:
+ * /api/auth/register:
  *   post:
  *     summary: Register a new user
  *     tags: [Auth]
@@ -118,7 +118,7 @@ router.route('/reset-password').post(validate(resetPasswordSchema), resetPasswor
 
 /**
  * @swagger
- * /api/v1/auth/verify-email:
+ * /api/auth/verify-email:
  *   get:
  *     summary: Verify user email
  *     tags: [Auth]
@@ -189,7 +189,7 @@ router.route('/refresh-token').post(refreshAccessToken);
 router.route('/me').get(verifyJWT, getCurrentUser);
 /**
  * @swagger
- * /api/v1/auth/me/role:
+ * /api/auth/me/role:
  *   patch:
  *     summary: Update user role
  *     tags: [Auth]
