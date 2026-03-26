@@ -25,7 +25,16 @@ const markAsRead = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, notification, 'Notification marked as read'));
 });
 
+const markAllAsRead = asyncHandler(async (req, res) => {
+  await notificationService.markAllAsRead(req.user._id);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, 'All notifications marked as read'));
+});
+
 export {
   getMyNotifications,
   markAsRead,
+  markAllAsRead,
 };
