@@ -8,6 +8,7 @@ import {
   getOpportunityApplications,
   updateApplicationStatus,
   getAllApplicants,
+  uploadOpportunityImage,
 } from '../controllers/publisher.controller.js';
 import {
   createOpportunity,
@@ -42,6 +43,8 @@ router.use(authorizeRoles('PUBLISHER', 'ADMIN'));
 
 router.route('/profile').get(getMyProfile).patch(upload.single('profilePhoto'), validate(profileUpdateSchema), updateProfile);
 router.route('/onboarding').post(completeOnboarding);
+
+router.route('/upload-image').post(upload.single('image'), uploadOpportunityImage);
 
 router.route('/dashboard/stats').get(getDashboardStats);
 router.route('/opportunities').get(getMyOpportunities).post(createOpportunity);

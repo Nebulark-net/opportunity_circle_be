@@ -57,6 +57,10 @@ const opportunitySchema = new Schema(
       default: 'N/A',
       index: true,
     },
+    salary: {
+      type: String,
+      trim: true,
+    },
     specificRequirements: {
       type: i18nSchema,
     },

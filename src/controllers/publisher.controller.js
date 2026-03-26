@@ -4,6 +4,7 @@ import * as analyticsService from '../services/analytics.service.js';
 import * as publisherService from '../services/publisher.service.js';
 import * as applicationService from '../services/application.service.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/apiError.js';
 import { uploadToCloudinary } from '../config/cloudinary.js';
 import { Opportunity } from '../models/Opportunity.js';
 import fs from 'fs';
@@ -107,6 +108,22 @@ const getAllApplicants = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, 'All applicants fetched successfully'));
 });
 
+const uploadOpportunityImage = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, 'No image file provided');
+  }
+
+  const result = await uploadToCloudinary(req.file.path, 'opportunities');
+  
+  if (fs.existsSync(req.file.path)) {
+    fs.unlinkSync(req.file.path);
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { imageUrl: result.secure_url }, 'Opportunity image uploaded successfully'));
+});
+
 export {
   getDashboardStats,
   getMyOpportunities,
@@ -116,4 +133,5 @@ export {
   getOpportunityApplications,
   updateApplicationStatus,
   getAllApplicants,
+  uploadOpportunityImage,
 };
